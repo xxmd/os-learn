@@ -13,7 +13,7 @@ int pipe_test() {
     int pid = fork();
     if (pid == 0) {
         printf("child\n");
-        close(fd[0]);
+        // close(fd[0]);
         while (1) {
             time_t now = time(NULL);
             struct tm *t = localtime(&now);
@@ -24,7 +24,7 @@ int pipe_test() {
         }
     } else if (pid > 0) {
         printf("parent\n");
-        close(fd[1]);
+        // close(fd[1]);
         while (1) {
             char buf[1024];
             read(fd[0], buf, sizeof(buf));
