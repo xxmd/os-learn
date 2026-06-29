@@ -7,33 +7,47 @@
 #include <sys/wait.h>
 #include <time.h>
 
-#define BUFFER_SIZE 5          // 缓冲区大小
-#define SEM_MUTEX "/sem_mutex" // 互斥信号量
-#define SEM_EMPTY "/sem_empty" // 空槽位信号量
-#define SEM_FULL  "/sem_full"  // 满槽位信号量
-#define SHM_NAME  "/pc_shm"    // 共享内存名称
+#define BUFFER_SIZE 5
+#define SEM_MUTEX "/sem_mutex"
+#define SEM_EMPTY "/sem_empty"
+#define SEM_FULL  "/sem_full"
+#define SHM_NAME  "/pc_shm"
 
-// 共享数据结构
 typedef struct {
-    int buffer[BUFFER_SIZE];   // 环形缓冲区
-    int in;                    // 生产者写入位置
-    int out;                   // 消费者读取位置
-    int produced;              // 已生产计数
-    int consumed;              // 已消费计数
+    int buffer[BUFFER_SIZE];
+    int in;
+    int out;
+    int produced;
+    int consumed;
 } SharedData;
 
+// 打印当前缓冲区内容
+void print_buffer(SharedData *shdata) {
+    printf("缓冲区 [ ");
+    for (int i = 0; i < BUFFER_SIZE; i++) {
+        if (i == shdata->in && i == shdata->out) {
+            printf("*%d* ", shdata->buffer[i]);  // in 和 out 重合
+        } else if (i == shdata->in) {
+            printf(">%d< ", shdata->buffer[i]);  // 生产者位置
+        } else if (i == shdata->out) {
+            printf("[%d] ", shdata->buffer[i]);  // 消费者位置
+        } else {
+            printf("%d ", shdata->buffer[i]);
+        }
+    }
+    printf("]  (in=%d, out=%d)\n", shdata->in, shdata->out);
+}
+
 int main() {
-    // 创建/打开信号量
-    sem_t *mutex = sem_open(SEM_MUTEX, O_CREAT | O_RDWR, 0666, 1);   // 初值1（互斥）
-    sem_t *empty = sem_open(SEM_EMPTY, O_CREAT | O_RDWR, 0666, BUFFER_SIZE); // 初值=缓冲区大小
-    sem_t *full  = sem_open(SEM_FULL,  O_CREAT | O_RDWR, 0666, 0);   // 初值0（初始无数据）
+    sem_t *mutex = sem_open(SEM_MUTEX, O_CREAT | O_RDWR, 0666, 1);
+    sem_t *empty = sem_open(SEM_EMPTY, O_CREAT | O_RDWR, 0666, BUFFER_SIZE);
+    sem_t *full  = sem_open(SEM_FULL,  O_CREAT | O_RDWR, 0666, 0);
 
     if (mutex == SEM_FAILED || empty == SEM_FAILED || full == SEM_FAILED) {
         perror("sem_open");
         exit(1);
     }
 
-    // 创建共享内存
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
     ftruncate(shm_fd, sizeof(SharedData));
     SharedData *shdata = (SharedData*)mmap(NULL, sizeof(SharedData),
@@ -44,7 +58,8 @@ int main() {
         exit(1);
     }
 
-    // 初始化共享数据
+    // 初始化
+    for (int i = 0; i < BUFFER_SIZE; i++) shdata->buffer[i] = 0;
     shdata->in = 0;
     shdata->out = 0;
     shdata->produced = 0;
@@ -59,52 +74,54 @@ int main() {
     srand(time(NULL));
 
     if (pid == 0) {
-        // ==================== 子进程：消费者 ====================
-        printf("消费者启动...\n");
-        for (int i = 0; i < 10; i++) {   // 消费10次
-            sem_wait(full);              // 等待有数据
-            sem_wait(mutex);             // 进入临界区
+        // ==================== 消费者 ====================
+        printf("【消费者】启动...\n");
+        for (int i = 0; i < 10; i++) {
+            sem_wait(full);
+            sem_wait(mutex);
 
             int item = shdata->buffer[shdata->out];
             shdata->out = (shdata->out + 1) % BUFFER_SIZE;
             shdata->consumed++;
 
-            printf("消费者取出: %d (已消费 %d 个)\n", item, shdata->consumed);
+            printf("【消费者】取出: %2d   ", item);
+            print_buffer(shdata);
 
-            sem_post(mutex);             // 离开临界区
-            sem_post(empty);             // 增加一个空槽位
+            sem_post(mutex);
+            sem_post(empty);
 
-            usleep(rand() % 500000);     // 模拟消费时间
+            usleep(rand() % 600000);
         }
         exit(0);
-    } 
+    }
     else {
-        // ==================== 父进程：生产者 ====================
-        printf("生产者启动...\n");
-        for (int i = 0; i < 10; i++) {   // 生产10次
-            int item = rand() % 100 + 1; // 产生随机数
+        // ==================== 生产者 ====================
+        printf("【生产者】启动...\n");
+        for (int i = 0; i < 10; i++) {
+            int item = rand() % 100 + 1;
 
-            sem_wait(empty);             // 等待有空槽位
-            sem_wait(mutex);             // 进入临界区
+            sem_wait(empty);
+            sem_wait(mutex);
 
             shdata->buffer[shdata->in] = item;
             shdata->in = (shdata->in + 1) % BUFFER_SIZE;
             shdata->produced++;
 
-            printf("生产者放入: %d (已生产 %d 个)\n", item, shdata->produced);
+            printf("【生产者】放入: %2d   ", item);
+            print_buffer(shdata);
 
-            sem_post(mutex);             // 离开临界区
-            sem_post(full);              // 增加一个满槽位
+            sem_post(mutex);
+            sem_post(full);
 
-            usleep(rand() % 400000);     // 模拟生产时间
+            usleep(rand() % 500000);
         }
 
-        wait(NULL);  // 等待消费者结束
-        printf("生产消费完成！共生产 %d 个，消费 %d 个\n", 
+        wait(NULL);
+        printf("\n=== 生产消费完成！共生产 %d 个，消费 %d 个 ===\n",
                shdata->produced, shdata->consumed);
     }
 
-    // 清理资源
+    // 清理
     sem_close(mutex);
     sem_close(empty);
     sem_close(full);
