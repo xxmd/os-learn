@@ -21,21 +21,13 @@ typedef struct {
     int consumed;
 } SharedData;
 
-// 打印当前缓冲区内容
+// 简化版：打印缓冲区（放入的值正常显示，取出或空的位置显示 0）
 void print_buffer(SharedData *shdata) {
-    printf("缓冲区 [ ");
+    printf("缓冲区: [");
     for (int i = 0; i < BUFFER_SIZE; i++) {
-        if (i == shdata->in && i == shdata->out) {
-            printf("*%d* ", shdata->buffer[i]);  // in 和 out 重合
-        } else if (i == shdata->in) {
-            printf(">%d< ", shdata->buffer[i]);  // 生产者位置
-        } else if (i == shdata->out) {
-            printf("[%d] ", shdata->buffer[i]);  // 消费者位置
-        } else {
-            printf("%d ", shdata->buffer[i]);
-        }
+        printf(" %d", shdata->buffer[i]);
     }
-    printf("]  (in=%d, out=%d)\n", shdata->in, shdata->out);
+    printf(" ]  (in=%d, out=%d)\n", shdata->in, shdata->out);
 }
 
 int main() {
@@ -58,7 +50,7 @@ int main() {
         exit(1);
     }
 
-    // 初始化
+    // 初始化缓冲区全部为 0
     for (int i = 0; i < BUFFER_SIZE; i++) shdata->buffer[i] = 0;
     shdata->in = 0;
     shdata->out = 0;
@@ -81,6 +73,7 @@ int main() {
             sem_wait(mutex);
 
             int item = shdata->buffer[shdata->out];
+            shdata->buffer[shdata->out] = 0;        // 取出后置为 0
             shdata->out = (shdata->out + 1) % BUFFER_SIZE;
             shdata->consumed++;
 
