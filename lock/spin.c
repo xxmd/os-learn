@@ -22,7 +22,7 @@ void* thread_func(void* arg) {
         counter++;
         pthread_spin_unlock(&spinlock);
 
-        // usleep(100);     // 调整此值观察差异
+        usleep(1000);     // 调整此值观察差异
     }
     return NULL;
 }
