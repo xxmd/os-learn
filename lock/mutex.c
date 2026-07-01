@@ -20,10 +20,10 @@ void* thread_func(void* arg) {
     while (running) {
         pthread_mutex_lock(&mutex);
         counter++;
+        usleep(1000);   // 100微秒，改成1~500看看效果
         pthread_mutex_unlock(&mutex);
 
         // 可微调竞争强度（改小 = 竞争更激烈）
-        usleep(1000);   // 100微秒，改成1~500看看效果
     }
     return NULL;
 }

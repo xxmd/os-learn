@@ -20,9 +20,9 @@ void* thread_func(void* arg) {
     while (running) {
         pthread_spin_lock(&spinlock);
         counter++;
+        usleep(1000);     // 调整此值观察差异
         pthread_spin_unlock(&spinlock);
 
-        usleep(1000);     // 调整此值观察差异
     }
     return NULL;
 }
