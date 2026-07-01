@@ -6,7 +6,7 @@
 #include <time.h>
 #include <signal.h>
 
-#define NUM_THREADS 2
+#define NUM_THREADS 8
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 volatile long long counter = 0;
